@@ -33,6 +33,7 @@ get '/*file' => sub {
 sub process_path {
     my ($c, $path) = @_;
 
+    $path = Encode::encode_utf8($path);
     my $full_path = catfile($start_path, $path);
     $full_path = realpath $full_path;
 
