@@ -1,0 +1,105 @@
+#!/usr/bin/env perl
+
+# Copyright 2015 Sergii Zasenko
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+use Mojolicious::Lite;
+use File::Spec::Functions qw(catfile abs2rel splitpath);
+use Cwd qw(getcwd realpath);
+use Encode;
+
+my ($start_path) = @ARGV;
+$start_path = '.' unless $start_path;
+die qq(Unknown path "$start_path") unless -e $start_path;
+
+$start_path = realpath $start_path;
+unshift @{app->static->paths}, $start_path;
+
+get '/', [format => 0] => sub {
+    my $c = shift;
+    &process_path($c, '');
+};
+
+get '/*file' => sub {
+    my $c = shift;
+    my $path = $c->param('file');
+    &process_path($c, $path);
+};
+
+sub process_path {
+    my ($c, $path) = @_;
+
+    my $full_path = catfile($start_path, $path);
+    $full_path = realpath $full_path;
+
+    return $c->reply->not_found unless (index($full_path, $start_path) == 0);
+
+    return $c->reply->not_found unless (-e $full_path);
+
+    if (-d $full_path) {
+        process_dir($c, $full_path);
+    } else {
+        process_file($c, $full_path);
+    }
+
+}
+
+sub process_file {
+    my ($c, $file) = @_;
+    my (undef, undef, $name) = splitpath($file);
+    $c->res->headers->content_disposition("attachment; filename=$name;");
+    $c->reply->static(abs2rel($file, $start_path));
+}
+
+sub process_dir {
+    my ($c, $path) = @_;
+    opendir(my $dir, $path) or die $!;
+
+    my @items;
+    while (my $file = readdir($dir)) {
+        push @items, {
+            name => Encode::decode_utf8($file),
+            directory => (-d catfile($path, $file))
+        };
+    }
+    
+    @items = sort files_order @items;
+    my $abs_path = abs2rel($path, $start_path);
+    $abs_path = Encode::decode_utf8($abs_path);
+    $c->render(path => $abs_path, template => 'folder', items => \@items);
+}
+
+sub files_order {
+    my $dir_match = -1 * ($a->{directory} cmp $b->{directory});
+    unless ($dir_match) {
+        return $a->{name} cmp $b->{name};
+    };
+    $dir_match;
+
+}
+
+app->start('daemon');
+__DATA__
+
+@@ folder.html.ep
+% layout 'default';
+% title "Index $path";
+<ul>
+% for my $file (@$items) {
+    <ol>
+        <a href="<%= "/$path/" . $file->{name} %>"><%=$file->{name}%></a>
+    </ol>
+% }
+</ul>
+
+@@ layouts/default.html.ep
+<!DOCTYPE html>
+<meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+<html>
+  <head><title><%= title %></title></head>
+  <body><%= content %></body>
+</html>
