@@ -20,11 +20,10 @@ $start_path = '.' unless $start_path;
 die qq(Unknown path "$start_path") unless -e $start_path;
 
 $start_path = realpath $start_path;
-unshift @{app->static->paths}, $start_path;
 
 get '/', [format => 0] => sub {
     my $c = shift;
-    &process_path($c, '');
+    &process_path($c);
 };
 
 get '/*file' => sub {
@@ -36,8 +35,11 @@ get '/*file' => sub {
 sub process_path {
     my ($c, $path) = @_;
 
-    $path = Encode::encode_utf8($path);
-    my $full_path = catfile($start_path, $path);
+    my $full_path = $start_path;
+    if ($path) {
+        $path = Encode::encode_utf8($path);
+        $full_path = catfile($start_path, $path);
+    };
     $full_path = realpath $full_path;
 
     return $c->reply->not_found unless (index($full_path, $start_path) == 0);
@@ -56,7 +58,8 @@ sub process_file {
     my ($c, $file) = @_;
     my (undef, undef, $name) = splitpath($file);
     $c->res->headers->content_disposition("attachment; filename=$name;");
-    $c->reply->static(abs2rel($file, $start_path));
+    my $asset = Mojo::Asset::File->new(path => $file);
+    $c->reply->asset($asset);
 }
 
 sub process_dir {
