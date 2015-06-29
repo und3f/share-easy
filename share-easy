@@ -11,8 +11,11 @@ use Mojolicious::Lite;
 use File::Spec::Functions qw(catfile abs2rel splitpath);
 use Cwd qw(getcwd realpath);
 use Encode;
+use IO::Interface::Simple;
 
 my ($start_path) = @ARGV;
+my $proto = "http";
+my $port = 3000;
 $start_path = '.' unless $start_path;
 die qq(Unknown path "$start_path") unless -e $start_path;
 
@@ -83,7 +86,22 @@ sub files_order {
 
 }
 
-app->start('daemon');
+&show_devices($proto, $port);
+app->log->level("error");
+app->start('daemon', listen => "$proto//*:$port");
+
+sub show_devices {
+    my ($proto, $port) = @_;
+    my @interfaces = IO::Interface::Simple->interfaces;
+
+    print "One of next addresses possible:\n";
+    for my $if (@interfaces) {
+        next if $if->hwaddr eq "00:00:00:00:00:00";
+        print "$proto://" . $if->address . ":$port\n";
+    };
+    print "\n";
+}
+
 __DATA__
 
 @@ folder.html.ep
