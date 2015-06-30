@@ -2,5 +2,6 @@
 Share files over HTTP easy
 
 # Usage
-./share-easy [shared path]
+./share-easy some-dir/
+./share-easy single-file.txt
 
