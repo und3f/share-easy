@@ -113,7 +113,7 @@ __DATA__
 <ul>
 % for my $file (@$items) {
     <ol>
-        <a href="<%= "/$path/" . $file->{name} %>"><%=$file->{name}%></a>
+        <a href="<%= "/$path/" . $file->{name} %>"><%= $file->{name} . ($file->{directory} ? '/' : '') %></a>
     </ol>
 % }
 </ul>
